@@ -130,10 +130,15 @@ async fn handle_callback(
 
 async fn send_waypoint(waypoint: &gpx::Waypoint, bot: &Bot, chat_id: &ChatId) {
     let buttons = Waypoint::iter()
-        .map(|wp| InlineKeyboardButton::callback(wp.symbol(), wp.wahoo_waypoint_name()))
+        .map(|wp| {
+            InlineKeyboardButton::callback(
+                format!("{} {}", wp.to_string(), wp.symbol()),
+                wp.wahoo_waypoint_name(),
+            )
+        })
         .collect::<Vec<InlineKeyboardButton>>();
 
-    const BUTTONS_PER_ROW: usize = 8;
+    const BUTTONS_PER_ROW: usize = 2;
     let keyboard = InlineKeyboardMarkup::new(
         buttons
             .chunks(BUTTONS_PER_ROW)

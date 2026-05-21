@@ -13,27 +13,29 @@ pub enum Waypoint {
     Camping,
     Ferry,
     Summit,
-    Valley,
+    SegmentStart,
+    SegmentEnd,
     Viewpoint,
 }
 
 impl std::fmt::Display for Waypoint {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            Waypoint::Generic => "Generic 📍",
-            Waypoint::Checkpoint => "Checkpoint 📋",
-            Waypoint::Water => "Water 💧",
-            Waypoint::Coffee => "Coffee ☕",
-            Waypoint::Grocery => "Grocery 🛒",
-            Waypoint::RestArea => "RestArea 🪑",
-            Waypoint::Accomodation => "Accomodation 🏨",
-            Waypoint::Restaurant => "Restaurant 🍽️",
-            Waypoint::Warning => "Warning ⚠️",
-            Waypoint::Camping => "Camping ⛺️",
-            Waypoint::Ferry => "Ferry 🚢",
-            Waypoint::Summit => "Summit 🏔️",
-            Waypoint::Valley => "Valley 📉",
-            Waypoint::Viewpoint => "Viewpoint 📷",
+            Waypoint::Generic => "Generic",
+            Waypoint::Checkpoint => "Checkpoint",
+            Waypoint::Water => "Water",
+            Waypoint::Coffee => "Coffee",
+            Waypoint::Grocery => "Grocery",
+            Waypoint::RestArea => "RestArea",
+            Waypoint::Accomodation => "Accomodation",
+            Waypoint::Restaurant => "Restaurant",
+            Waypoint::Warning => "Warning",
+            Waypoint::Camping => "Camping",
+            Waypoint::Ferry => "Ferry",
+            Waypoint::Summit => "Summit",
+            Waypoint::SegmentStart => "Segment Start",
+            Waypoint::SegmentEnd => "Segment End",
+            Waypoint::Viewpoint => "Viewpoint",
         };
         write!(f, "{s}")
     }
@@ -54,25 +56,27 @@ impl Waypoint {
             Waypoint::Camping => "campsite",
             Waypoint::Ferry => "ferry",
             Waypoint::Summit => "summit",
-            Waypoint::Valley => "valley",
+            Waypoint::SegmentStart => "segment_start",
+            Waypoint::SegmentEnd => "segment_stop",
             Waypoint::Viewpoint => "viewpoint",
         }
     }
     pub fn symbol(&self) -> &str {
         match self {
             Waypoint::Generic => "📍",
-            Waypoint::Checkpoint => "📋",
+            Waypoint::Checkpoint => "✅",
             Waypoint::Water => "💧",
             Waypoint::Coffee => "☕",
             Waypoint::Grocery => "🛒",
             Waypoint::RestArea => "🪑",
-            Waypoint::Accomodation => "🏨",
+            Waypoint::Accomodation => "🛏️",
             Waypoint::Restaurant => "🍽️",
             Waypoint::Warning => "⚠️",
             Waypoint::Camping => "⛺️",
             Waypoint::Ferry => "🚢",
             Waypoint::Summit => "🏔️",
-            Waypoint::Valley => "📉",
+            Waypoint::SegmentStart => "🟢",
+            Waypoint::SegmentEnd => "🏁",
             Waypoint::Viewpoint => "📷",
         }
     }
