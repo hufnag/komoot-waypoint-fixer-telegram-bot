@@ -1,0 +1,14 @@
+[Unit]
+Description=Komoot Waypoint Fixer Telegram Bot
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Restart=always
+RestartSec=1
+Environment=TELOXIDE_TOKEN=<your telegram bot token>
+Environment=RUST_LOG=info
+ExecStart=/usr/local/bin/komoot_waypoint_fixer_telegram_bot
+
+[Install]
+WantedBy=multi-user.target
