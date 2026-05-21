@@ -834,7 +834,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "komoot-to-wahoo-waypoint-fixer"
+name = "komoot_waypoint_fixer_telegram_bot"
 version = "0.1.0"
 dependencies = [
  "gpx",
