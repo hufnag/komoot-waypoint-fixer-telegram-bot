@@ -1,0 +1,11 @@
+[package]
+name = "komoot-to-wahoo-waypoint-fixer"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap = { version = "4.6.1", features = ["derive"] }
+gpx = "0.10.0"
+num_enum = "0.7.6"
+strum = "0.28.0"
+strum_macros = "0.28.0"
