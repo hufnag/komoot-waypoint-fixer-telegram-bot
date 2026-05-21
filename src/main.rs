@@ -1,5 +1,4 @@
 use std::{ops::DerefMut, sync::Arc};
-
 use strum::IntoEnumIterator;
 use teloxide::{
     dispatching::dialogue::GetChatId,
@@ -7,12 +6,11 @@ use teloxide::{
     prelude::*,
     types::{InlineKeyboardButton, InlineKeyboardMarkup, InputFile, MediaKind, MessageKind},
 };
+use tokio::sync::Mutex;
 mod waypoint;
 use waypoint::Waypoint;
 mod app_state;
 use app_state::AppState;
-
-use tokio::sync::Mutex;
 
 type SharedAppState = Arc<Mutex<AppState>>;
 
@@ -35,7 +33,6 @@ async fn main() {
         .await;
 }
 async fn handle_message(bot: Bot, msg: Message, app_state: SharedAppState) -> ResponseResult<()> {
-    log::info!("Received message: {msg:#?}");
     if let MessageKind::Common(ref common_msg) = msg.kind
         && let MediaKind::Document(ref document) = common_msg.media_kind
     {
@@ -69,46 +66,37 @@ async fn handle_callback(
 ) -> ResponseResult<()> {
     if let Some(data) = q.data {
         bot.answer_callback_query(q.id).await?;
-
-        let chat_id = q.message.as_ref().unwrap().chat().chat_id().unwrap();
+        let mut state = app_state.lock().await;
+        let index = state.waypoint_index;
         log::info!(
-            "Callback Chat ID: {}",
-            q.message.as_ref().unwrap().chat().chat_id().unwrap()
+            "Setting type and symbol of waypoint {} to {}",
+            state.gpx.waypoints[index].name.clone().unwrap(),
+            data
         );
-        bot.send_message(chat_id, format!("Callback: {data}"))
-            .await?;
-        {
-            let mut state = app_state.lock().await;
-            let index = state.waypoint_index;
-            log::info!(
-                "Setting type and symbol of waypoint {} to {}",
-                state.gpx.waypoints[index].name.clone().unwrap(),
-                data
-            );
-            state.gpx.waypoints[index].type_ = Some(data.clone());
-            state.gpx.waypoints[index].symbol = Some(data);
+        state.gpx.waypoints[index].type_ = Some(data.clone());
+        state.gpx.waypoints[index].symbol = Some(data);
 
-            if index + 1 == state.gpx.waypoints.len() {
-                log::info!("All waypoints processed");
-                let fixed_gpx_file_name = format!(
-                    "{}_fixed.gpx",
-                    state.gpx_file_name.strip_suffix(".gpx").unwrap()
-                );
-                let fixed_gpx_file = std::fs::File::create(&fixed_gpx_file_name).unwrap();
-                let fixed_gpx_file_writer = std::io::BufWriter::new(fixed_gpx_file);
-                gpx::write(&state.gpx, fixed_gpx_file_writer).unwrap();
-                bot.send_document(chat_id, InputFile::file(fixed_gpx_file_name))
-                    .await
-                    .unwrap();
-            } else {
-                state.waypoint_index += 1;
-                send_waypoint(
-                    &state.gpx.waypoints[state.waypoint_index],
-                    &bot,
-                    &q.message.unwrap().chat().chat_id().unwrap(),
-                )
-                .await;
-            }
+        if index + 1 == state.gpx.waypoints.len() {
+            log::info!("All waypoints processed");
+            let fixed_gpx_file_name = format!(
+                "{}_fixed.gpx",
+                state.gpx_file_name.strip_suffix(".gpx").unwrap()
+            );
+            let fixed_gpx_file = std::fs::File::create(&fixed_gpx_file_name).unwrap();
+            let fixed_gpx_file_writer = std::io::BufWriter::new(fixed_gpx_file);
+            gpx::write(&state.gpx, fixed_gpx_file_writer).unwrap();
+            let chat_id = q.message.as_ref().unwrap().chat().chat_id().unwrap();
+            bot.send_document(chat_id, InputFile::file(fixed_gpx_file_name))
+                .await
+                .unwrap();
+        } else {
+            state.waypoint_index += 1;
+            send_waypoint(
+                &state.gpx.waypoints[state.waypoint_index],
+                &bot,
+                &q.message.unwrap().chat().chat_id().unwrap(),
+            )
+            .await;
         }
     }
 
@@ -116,15 +104,14 @@ async fn handle_callback(
 }
 
 async fn send_waypoint(waypoint: &gpx::Waypoint, bot: &Bot, chat_id: &ChatId) {
-    log::info!("Waypoint: {}", waypoint.name.as_ref().unwrap());
-
     let buttons = Waypoint::iter()
         .map(|wp| InlineKeyboardButton::callback(wp.symbol(), wp.wahoo_waypoint_name()))
         .collect::<Vec<InlineKeyboardButton>>();
 
+    const BUTTONS_PER_ROW: usize = 8;
     let keyboard = InlineKeyboardMarkup::new(
         buttons
-            .chunks(8)
+            .chunks(BUTTONS_PER_ROW)
             .map(|chunk| chunk.to_vec())
             .collect::<Vec<Vec<InlineKeyboardButton>>>(),
     );
