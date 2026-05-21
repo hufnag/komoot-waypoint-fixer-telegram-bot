@@ -20,7 +20,7 @@ pub enum Waypoint {
 impl std::fmt::Display for Waypoint {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            Waypoint::Generic => "Generic📍",
+            Waypoint::Generic => "Generic 📍",
             Waypoint::Checkpoint => "Checkpoint 📋",
             Waypoint::Water => "Water 💧",
             Waypoint::Coffee => "Coffee ☕",
