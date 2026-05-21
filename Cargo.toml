@@ -4,8 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-clap = { version = "4.6.1", features = ["derive"] }
 gpx = "0.10.0"
-num_enum = "0.7.6"
 strum = "0.28.0"
 strum_macros = "0.28.0"
+tokio = { version = "1.52.3", features = ["full"] }
+teloxide = { version = "0.17.0", features = ["macros"] }
+log = "0.4"
+pretty_env_logger = "0.5"
+time-format = "1.2.2"
