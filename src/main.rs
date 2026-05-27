@@ -167,11 +167,24 @@ async fn send_waypoint(waypoint: &gpx::Waypoint, bot: &Bot, chat_id: &ChatId) {
 
 fn fix_waypoint(gpx: &mut gpx::Gpx, waypoint_type: &str, waypoint_index: usize) {
     let waypoint = &mut gpx.waypoints[waypoint_index];
-    // 1. Set correct type and symbol
+    // 1. Correct german umlauts
+    waypoint.name = Some(
+        waypoint
+            .name
+            .as_ref()
+            .unwrap()
+            .replace("ä", "ae")
+            .replace("ö", "oe")
+            .replace("ü", "ue")
+            .replace("ß", "ss")
+            .to_string(),
+    );
+
+    // 2. Set correct type and symbol
     waypoint.type_ = Some(waypoint_type.to_string());
     waypoint.symbol = Some(waypoint_type.to_string());
 
-    // 2. Insert missing waypoint into track if not already present
+    // 3. Insert missing waypoint into track if not already present
 
     // Check if waypoint coordinates are already part of the track
     let waypont_point = geo::Point::new(waypoint.point().x(), waypoint.point().y());
