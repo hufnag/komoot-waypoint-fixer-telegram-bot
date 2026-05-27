@@ -1,5 +1,8 @@
 use geo::{Distance, InterpolatableLine, LineLocatePoint, coord};
-use std::{ops::DerefMut, sync::Arc};
+use std::{
+    ops::DerefMut,
+    sync::{Arc, OnceLock},
+};
 use strum::IntoEnumIterator;
 use teloxide::{
     dispatching::dialogue::GetChatId,
@@ -15,9 +18,13 @@ use app_state::AppState;
 
 type SharedAppState = Arc<Mutex<AppState>>;
 
+static TMP_FILE_DIR: OnceLock<String> = OnceLock::new();
+
 #[tokio::main]
 async fn main() {
     pretty_env_logger::init();
+
+    TMP_FILE_DIR.get_or_init(|| std::env::var("WAYPOINT_FIXER_TMP_DIR").unwrap_or(".".to_string()));
 
     let bot = Bot::from_env();
 
@@ -35,8 +42,6 @@ async fn main() {
         .await;
 }
 
-const TMP_FILE_DIR: &str = "/tmp/komoot_waypoint_fixer_telegram_bot";
-
 async fn handle_message(bot: Bot, msg: Message, app_state: SharedAppState) -> ResponseResult<()> {
     if let MessageKind::Common(ref common_msg) = msg.kind
         && let MediaKind::Document(ref document) = common_msg.media_kind
@@ -53,7 +58,7 @@ async fn handle_message(bot: Bot, msg: Message, app_state: SharedAppState) -> Re
             log::warn!("Received file is not a GPX file: {file_name}. Ignoring.");
             return Ok(());
         }
-        let gpx_file_destination = format!("{TMP_FILE_DIR}/{file_name}");
+        let gpx_file_destination = format!("{}/{file_name}", TMP_FILE_DIR.get().unwrap());
         let mut gpx_file = tokio::fs::File::create(&gpx_file_destination)
             .await
             .unwrap();
@@ -105,7 +110,8 @@ async fn handle_callback(
         if index + 1 == state.gpx.waypoints.len() {
             log::info!("All waypoints processed. Sending back fixed GPX file.");
             let fixed_gpx_file_name = format!(
-                "{TMP_FILE_DIR}/{}_fixed.gpx",
+                "{}/{}_fixed.gpx",
+                TMP_FILE_DIR.get().unwrap(),
                 state.gpx_file_name.strip_suffix(".gpx").unwrap()
             );
             let fixed_gpx_file = std::fs::File::create(&fixed_gpx_file_name).unwrap();

@@ -8,6 +8,7 @@ Restart=always
 RestartSec=1
 Environment=TELOXIDE_TOKEN=<your telegram bot token>
 Environment=RUST_LOG=info
+Environment=WAYPOINT_FIXER_TMP_DIR=/tmp/komoot_waypoint_fixer_telegram_bot
 ExecStart=/usr/local/bin/komoot_waypoint_fixer_telegram_bot
 
 [Install]
