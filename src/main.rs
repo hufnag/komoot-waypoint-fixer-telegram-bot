@@ -59,19 +59,25 @@ async fn handle_message(bot: Bot, msg: Message, app_state: SharedAppState) -> Re
             return Ok(());
         }
         let gpx_file_destination = format!("{}/{file_name}", TMP_FILE_DIR.get().unwrap());
-        let mut gpx_file = tokio::fs::File::create(&gpx_file_destination)
-            .await
-            .unwrap();
-        bot.download_file(&file.path, &mut gpx_file).await.unwrap();
-        let file = std::fs::File::open(&gpx_file_destination).unwrap();
-        let reader = std::io::BufReader::new(file);
-        let gpx: gpx::Gpx = match gpx::read(reader) {
-            Ok(gpx) => gpx,
-            Err(e) => {
-                log::error!("Failed to parse GPX file: {e}");
-                return Ok(());
+        let gpx: gpx::Gpx = {
+            let mut gpx_file = tokio::fs::File::create(&gpx_file_destination)
+                .await
+                .unwrap();
+            bot.download_file(&file.path, &mut gpx_file).await.unwrap();
+            let file = std::fs::File::open(&gpx_file_destination).unwrap();
+            let reader = std::io::BufReader::new(file);
+            match gpx::read(reader) {
+                Ok(gpx) => gpx,
+                Err(e) => {
+                    log::error!("Failed to parse GPX file: {e}");
+                    return Ok(());
+                }
             }
         };
+
+        if let Err(e) = std::fs::remove_file(&gpx_file_destination) {
+            log::warn!("Failed to remove temporary GPX file: {}", e);
+        }
 
         if let Some(waypoint) = gpx.waypoints.first() {
             send_waypoint(waypoint, &bot, &msg.chat_id().unwrap()).await;
@@ -114,13 +120,18 @@ async fn handle_callback(
                 TMP_FILE_DIR.get().unwrap(),
                 state.gpx_file_name.strip_suffix(".gpx").unwrap()
             );
-            let fixed_gpx_file = std::fs::File::create(&fixed_gpx_file_name).unwrap();
-            let fixed_gpx_file_writer = std::io::BufWriter::new(fixed_gpx_file);
-            gpx::write(&state.gpx, fixed_gpx_file_writer).unwrap();
-            let chat_id = q.message.as_ref().unwrap().chat().chat_id().unwrap();
-            bot.send_document(chat_id, InputFile::file(fixed_gpx_file_name))
-                .await
-                .unwrap();
+            {
+                let fixed_gpx_file = std::fs::File::create(&fixed_gpx_file_name).unwrap();
+                let fixed_gpx_file_writer = std::io::BufWriter::new(fixed_gpx_file);
+                gpx::write(&state.gpx, fixed_gpx_file_writer).unwrap();
+                let chat_id = q.message.as_ref().unwrap().chat().chat_id().unwrap();
+                bot.send_document(chat_id, InputFile::file(&fixed_gpx_file_name))
+                    .await
+                    .unwrap();
+            }
+            if let Err(e) = std::fs::remove_file(&fixed_gpx_file_name) {
+                log::warn!("Failed to remove fixed GPX file: {}", e);
+            }
         } else {
             state.waypoint_index += 1;
             send_waypoint(
