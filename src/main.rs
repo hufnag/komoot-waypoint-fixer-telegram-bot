@@ -1,3 +1,4 @@
+use geo::{Distance, InterpolatableLine, LineLocatePoint, coord};
 use std::{ops::DerefMut, sync::Arc};
 use strum::IntoEnumIterator;
 use teloxide::{
@@ -98,8 +99,8 @@ async fn handle_callback(
                 .expect("Waypoints need to have a name set."),
             data
         );
-        state.gpx.waypoints[index].type_ = Some(data.clone());
-        state.gpx.waypoints[index].symbol = Some(data);
+
+        fix_waypoint(&mut state.gpx, &data, index);
 
         if index + 1 == state.gpx.waypoints.len() {
             log::info!("All waypoints processed. Sending back fixed GPX file.");
@@ -132,7 +133,7 @@ async fn send_waypoint(waypoint: &gpx::Waypoint, bot: &Bot, chat_id: &ChatId) {
     let buttons = Waypoint::iter()
         .map(|wp| {
             InlineKeyboardButton::callback(
-                format!("{} {}", wp.to_string(), wp.symbol()),
+                format!("{} {}", wp, wp.symbol()),
                 wp.wahoo_waypoint_name(),
             )
         })
@@ -156,4 +157,97 @@ async fn send_waypoint(waypoint: &gpx::Waypoint, bot: &Bot, chat_id: &ChatId) {
     .reply_markup(keyboard)
     .await
     .unwrap();
+}
+
+fn fix_waypoint(gpx: &mut gpx::Gpx, waypoint_type: &str, waypoint_index: usize) {
+    let waypoint = &mut gpx.waypoints[waypoint_index];
+    // 1. Set correct type and symbol
+    waypoint.type_ = Some(waypoint_type.to_string());
+    waypoint.symbol = Some(waypoint_type.to_string());
+
+    // 2. Insert missing waypoint into track if not already present
+
+    // Check if waypoint coordinates are already part of the track
+    let waypont_point = geo::Point::new(waypoint.point().x(), waypoint.point().y());
+    let track = gpx
+        .tracks
+        .first_mut()
+        .unwrap()
+        .segments
+        .first_mut()
+        .unwrap();
+
+    if track
+        .points
+        .iter()
+        .find(|point| point.point() == waypoint.point())
+        .is_some()
+    {
+        log::info!("Waypoint coordinate is already part of the track. No further steps needed.");
+        return;
+    }
+
+    let line_string: geo::LineString = track
+        .points
+        .iter()
+        .map(|point| coord! {x: point.point().x(), y: point.point().y()})
+        .collect();
+
+    match line_string.line_locate_point(&waypont_point) {
+        Some(ratio) => {
+            let waypoint_projection = line_string
+                .point_at_ratio_from_start(&geo::Euclidean, ratio)
+                .unwrap();
+
+            let index_to_insert_additional_waypoints =
+                get_waypoint_insert_index_of_track(&line_string, &waypoint.point());
+            let projection_waypoint = gpx::Waypoint::new(geo_types::Point::new(
+                waypoint_projection.x(),
+                waypoint_projection.y(),
+            ));
+            track.points.splice(
+                index_to_insert_additional_waypoints..index_to_insert_additional_waypoints,
+                [
+                    projection_waypoint.clone(),
+                    waypoint.clone(),
+                    projection_waypoint,
+                ],
+            );
+        }
+        None => {
+            log::error!("Could not find closest point on track for waypoint");
+        }
+    }
+}
+
+/// Returns the index at which to insert a waypoint into a track, based on the two closest exisiting points in the track
+fn get_waypoint_insert_index_of_track(track: &geo::LineString, waypoint: &geo::Point) -> usize {
+    let index_of_closest_point_to_projection = track
+        .points()
+        .enumerate()
+        .min_by(|(_, a), (_, b)| {
+            geo::Euclidean
+                .distance(a, waypoint)
+                .total_cmp(&geo::Euclidean.distance(b, waypoint))
+        })
+        .map(|(idx, _)| idx)
+        .unwrap();
+
+    let distance_to_point_before = track
+        .points()
+        .collect::<Vec<geo::Point>>()
+        .get(index_of_closest_point_to_projection - 1)
+        .map(|p| geo::Euclidean.distance(p, waypoint))
+        .unwrap_or(f64::INFINITY);
+    let distance_to_point_after = track
+        .points()
+        .collect::<Vec<geo::Point>>()
+        .get(index_of_closest_point_to_projection + 1)
+        .map(|p| geo::Euclidean.distance(p, waypoint))
+        .unwrap_or(f64::INFINITY);
+    if distance_to_point_after > distance_to_point_before {
+        index_of_closest_point_to_projection
+    } else {
+        index_of_closest_point_to_projection + 1
+    }
 }
